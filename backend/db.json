@@ -1,0 +1,215 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "username": "admin",
+      "email": "admin@transport.com",
+      "password_hash": "$2a$10$Y56LGBoPa5op7Eg5NSrbfeRbsmZkVx2faLFtND1K.03bzJX2dtDqq",
+      "role": "Admin",
+      "created_at": "2024-11-06T00:00:00.000Z"
+    },
+    {
+      "username": "bar",
+      "email": "bar@gmail.com",
+      "password_hash": "$2a$10$7I71dkxBdk4Jg8yBGNu3be.N59g5opb5vPtru981H11DjITIKRfeK",
+      "role": "Customer",
+      "created_at": "2025-11-06T20:23:45.898Z",
+      "id": 2
+    }
+  ],
+  "shipments": [
+    {
+      "customer_name": "bar",
+      "customer_id": 2,
+      "product_name": "Fresh Kokoreç",
+      "category": "Frozen",
+      "weight": "500",
+      "destination": "Berlin, Germany",
+      "destination_country": "Istanbul, Turkey",
+      "distance": 3000,
+      "container_type": "Medium",
+      "price": 24000,
+      "estimated_delivery_days": 8,
+      "status": "Ready",
+      "container_id": null,
+      "created_at": "2025-11-06T20:24:36.201Z",
+      "id": 1
+    }
+  ],
+  "containers": [
+    {
+      "id": 1,
+      "type": "Small",
+      "capacity": 2000,
+      "current_load": 0,
+      "status": "Available",
+      "created_at": "2024-11-06T00:00:00.000Z"
+    },
+    {
+      "id": 2,
+      "type": "Small",
+      "capacity": 2000,
+      "current_load": 0,
+      "status": "Available",
+      "created_at": "2024-11-06T00:00:00.000Z"
+    },
+    {
+      "id": 3,
+      "type": "Medium",
+      "capacity": 5000,
+      "current_load": 0,
+      "status": "Available",
+      "created_at": "2024-11-06T00:00:00.000Z"
+    },
+    {
+      "id": 4,
+      "type": "Medium",
+      "capacity": 5000,
+      "current_load": 0,
+      "status": "Available",
+      "created_at": "2024-11-06T00:00:00.000Z"
+    },
+    {
+      "id": 5,
+      "type": "Large",
+      "capacity": 10000,
+      "current_load": 0,
+      "status": "Available",
+      "created_at": "2024-11-06T00:00:00.000Z"
+    },
+    {
+      "id": 6,
+      "type": "Large",
+      "capacity": 10000,
+      "current_load": 0,
+      "status": "Available",
+      "created_at": "2024-11-06T00:00:00.000Z"
+    },
+    {
+      "id": 7,
+      "type": "Large",
+      "capacity": 10000,
+      "current_load": 0,
+      "status": "Available",
+      "created_at": "2024-11-06T00:00:00.000Z"
+    }
+  ],
+  "fleet": [
+    {
+      "id": "S001",
+      "type": "Ship",
+      "name": "BlueSea",
+      "capacity": 100000,
+      "fuel_cost_per_km": 40,
+      "crew_cost": 20000,
+      "maintenance": 10000,
+      "total_expense": 70000,
+      "status": "Available"
+    },
+    {
+      "id": "S002",
+      "type": "Ship",
+      "name": "OceanStar",
+      "capacity": 120000,
+      "fuel_cost_per_km": 50,
+      "crew_cost": 25000,
+      "maintenance": 12000,
+      "total_expense": 87000,
+      "status": "Available"
+    },
+    {
+      "id": "S003",
+      "type": "Ship",
+      "name": "AegeanWind",
+      "capacity": 90000,
+      "fuel_cost_per_km": 35,
+      "crew_cost": 18000,
+      "maintenance": 8000,
+      "total_expense": 61000,
+      "status": "Available"
+    },
+    {
+      "id": "T001",
+      "type": "Truck",
+      "name": "RoadKing",
+      "capacity": 10000,
+      "fuel_cost_per_km": 8,
+      "crew_cost": 3000,
+      "maintenance": 2000,
+      "total_expense": 8000,
+      "status": "Available"
+    },
+    {
+      "id": "T002",
+      "type": "Truck",
+      "name": "FastMove",
+      "capacity": 12000,
+      "fuel_cost_per_km": 9,
+      "crew_cost": 3500,
+      "maintenance": 2500,
+      "total_expense": 9000,
+      "status": "Available"
+    },
+    {
+      "id": "T003",
+      "type": "Truck",
+      "name": "CargoPro",
+      "capacity": 9000,
+      "fuel_cost_per_km": 7,
+      "crew_cost": 2800,
+      "maintenance": 2000,
+      "total_expense": 7800,
+      "status": "Available"
+    },
+    {
+      "id": "T004",
+      "type": "Truck",
+      "name": "HeavyLoad",
+      "capacity": 15000,
+      "fuel_cost_per_km": 10,
+      "crew_cost": 4000,
+      "maintenance": 3000,
+      "total_expense": 10500,
+      "status": "Available"
+    }
+  ],
+  "inventory": [
+    {
+      "id": 1,
+      "category": "Fresh",
+      "quantity": 16632,
+      "min_stock": 2000,
+      "status": "OK",
+      "last_updated": "2025-11-06T20:27:03.214Z"
+    },
+    {
+      "id": 2,
+      "category": "Frozen",
+      "quantity": 700,
+      "min_stock": 1000,
+      "status": "Low",
+      "last_updated": "2025-11-06T20:24:36.202Z"
+    },
+    {
+      "id": 3,
+      "category": "Organic",
+      "quantity": 9000,
+      "min_stock": 2500,
+      "status": "OK",
+      "last_updated": "2025-11-06T20:21:54.317Z"
+    }
+  ],
+  "financials": {
+    "total_revenue": 0,
+    "total_expenses": 0,
+    "net_income": 0,
+    "tax": 0,
+    "profit_after_tax": 0,
+    "updated_at": "2025-11-06T20:26:57.257Z",
+    "totalRevenue": 0,
+    "totalExpenses": 0,
+    "netIncome": 0,
+    "taxRate": "20%",
+    "profitAfterTax": 0
+  }
+}
