@@ -7,19 +7,41 @@ const { calculateFinancials } = require('../utils/financialCalculator');
  */
 async function getFinancialSummary(req, res) {
     try {
-        // Get current financial record
-        const financial = getFinancials();
-        
-        // Recalculate to ensure accuracy
-        const calculated = calculateFinancials(financial.total_revenue, financial.total_expenses);
-        
-        // Get breakdown
+        // Gather revenue from delivered shipments
         const shipments = findAll('shipments', s => s.status === 'Delivered');
         const totalShipments = shipments.length;
-        const revenue = shipments.reduce((sum, s) => sum + s.price, 0);
+        const totalRevenue = shipments.reduce((sum, s) => sum + s.price, 0);
+        const averageRevenue = totalShipments > 0 ? (totalRevenue / totalShipments) : 0;
+
+        // Gather expenses from logged fleet trips
+        const fleetTrips = findAll('fleet_trips');
+        const totalExpenses = fleetTrips.reduce((sum, trip) => sum + (trip.total_expense || 0), 0);
+        const totalDistance = fleetTrips.reduce((sum, trip) => sum + (trip.distance || 0), 0);
+
+        // Calculate full financials and persist snapshot
+        const calculated = calculateFinancials(totalRevenue, totalExpenses);
+        const persisted = updateFinancials({
+            total_revenue: totalRevenue,
+            total_expenses: totalExpenses,
+            net_income: calculated.netIncome,
+            tax: calculated.tax,
+            profit_after_tax: calculated.profitAfterTax,
+            totalRevenue: calculated.totalRevenue,
+            totalExpenses: calculated.totalExpenses,
+            netIncome: calculated.netIncome,
+            profitAfterTax: calculated.profitAfterTax,
+            taxRate: calculated.taxRate
+        });
+        
+        const generatedAt = new Date().toISOString();
+        const financialSnapshot = {
+            ...calculated,
+            generatedAt,
+            lastUpdated: persisted.updated_at
+        };
         
         res.json({
-            financial: calculated,
+            financial: financialSnapshot,
             breakdown: {
                 totalRevenue: `₺${calculated.totalRevenue.toLocaleString('tr-TR')}`,
                 totalExpenses: `₺${calculated.totalExpenses.toLocaleString('tr-TR')}`,
@@ -30,7 +52,12 @@ async function getFinancialSummary(req, res) {
             stats: {
                 totalShipments,
                 deliveredShipments: totalShipments,
-                averageRevenuePerShipment: totalShipments > 0 ? (revenue / totalShipments).toFixed(2) : 0
+                averageRevenuePerShipment: averageRevenue.toFixed(2),
+                fleetTrips: fleetTrips.length,
+                totalTripExpense: `₺${totalExpenses.toLocaleString('tr-TR')}`,
+                totalTripDistance: `${totalDistance.toLocaleString('tr-TR')} km`,
+                generatedAt,
+                lastUpdated: persisted.updated_at
             }
         });
         
@@ -49,20 +76,42 @@ async function recalculateFinancials(req, res) {
         const shipments = findAll('shipments', s => s.status === 'Delivered');
         const totalRevenue = shipments.reduce((sum, s) => sum + s.price, 0);
         
-        // For now, use simplified expense calculation
-        const totalExpenses = 0; // Will be calculated from actual fleet usage
+        // Calculate total expenses from logged fleet trips
+        const fleetTrips = findAll('fleet_trips');
+        const totalExpenses = fleetTrips.reduce((sum, trip) => sum + (trip.total_expense || 0), 0);
         
         const calculated = calculateFinancials(totalRevenue, totalExpenses);
         
-        // Update database
-        updateFinancials(calculated);
+        // Update database snapshot
+        const persisted = updateFinancials({
+            total_revenue: totalRevenue,
+            total_expenses: totalExpenses,
+            net_income: calculated.netIncome,
+            tax: calculated.tax,
+            profit_after_tax: calculated.profitAfterTax,
+            totalRevenue: calculated.totalRevenue,
+            totalExpenses: calculated.totalExpenses,
+            netIncome: calculated.netIncome,
+            profitAfterTax: calculated.profitAfterTax,
+            taxRate: calculated.taxRate
+        });
+        
+        const generatedAt = new Date().toISOString();
         
         res.json({
             message: 'Financials recalculated successfully',
-            financial: calculated,
+            financial: {
+                ...calculated,
+                generatedAt,
+                lastUpdated: persisted.updated_at
+            },
             source: {
                 deliveredShipments: shipments.length,
-                totalRevenue
+                totalRevenue,
+                totalExpenses,
+                fleetTrips: fleetTrips.length,
+                generatedAt,
+                lastUpdated: persisted.updated_at
             }
         });
         

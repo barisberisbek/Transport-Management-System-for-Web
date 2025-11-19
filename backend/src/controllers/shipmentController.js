@@ -2,6 +2,14 @@ const { findOne, findAll, insert, update } = require('../config/dataStore');
 const { calculateDistance, estimateDeliveryTime } = require('../utils/distanceCalculator');
 const { calculatePrice, checkCapacity } = require('../utils/priceCalculator');
 
+const generateInvoiceNumber = (shipmentId, isoDate) => {
+    const date = new Date(isoDate);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `INV-${year}${month}${day}-${String(shipmentId).padStart(4, '0')}`;
+};
+
 /**
  * Create new shipment - Module 1: Customer Interface
  * CRITICAL: Price formula must be exact: Total Price = Distance × Rate per km
@@ -24,6 +32,11 @@ async function createShipment(req, res) {
         if (!product_name || !category || !weight || !destination || !container_type) {
             return res.status(400).json({ error: 'All fields are required' });
         }
+
+        const weightValue = Number(weight);
+        if (!Number.isFinite(weightValue) || weightValue <= 0) {
+            return res.status(400).json({ error: 'Invalid weight value' });
+        }
         
         if (!['Fresh', 'Frozen', 'Organic'].includes(category)) {
             return res.status(400).json({ error: 'Invalid category' });
@@ -34,7 +47,7 @@ async function createShipment(req, res) {
         }
         
         // Check capacity
-        if (!checkCapacity(weight, container_type)) {
+        if (!checkCapacity(weightValue, container_type)) {
             return res.status(400).json({ 
                 error: `Weight exceeds ${container_type} container capacity`,
                 alert: `There is no enough space in ${container_type} container`
@@ -44,7 +57,7 @@ async function createShipment(req, res) {
         // Check inventory
         const inventory = findOne('inventory', i => i.category === category);
         
-        if (!inventory || inventory.quantity < weight) {
+        if (!inventory || inventory.quantity < weightValue) {
             return res.status(400).json({ 
                 error: `Insufficient inventory for ${category}. Available: ${inventory?.quantity || 0} kg` 
             });
@@ -59,13 +72,15 @@ async function createShipment(req, res) {
         // Estimate delivery time
         const estimated_delivery_days = estimateDeliveryTime(distance, container_type);
         
+        const timestamp = new Date().toISOString();
+        
         // Create shipment
         const shipment = insert('shipments', {
             customer_name,
             customer_id,
             product_name,
             category,
-            weight,
+            weight: weightValue,
             destination,
             destination_country: destination_country || destination.split(',').pop().trim(),
             distance,
@@ -74,26 +89,34 @@ async function createShipment(req, res) {
             estimated_delivery_days,
             status: 'Pending',
             container_id: null,
-            created_at: new Date().toISOString()
+            created_at: timestamp,
+            updated_at: timestamp
         });
+        
+        const invoiceNumber = generateInvoiceNumber(shipment.id, timestamp);
         
         // Update inventory
         update('inventory', i => i.category === category, {
-            quantity: inventory.quantity - weight,
-            status: (inventory.quantity - weight) < inventory.min_stock ? 'Low' : 'OK',
+            quantity: inventory.quantity - weightValue,
+            status: (inventory.quantity - weightValue) < inventory.min_stock ? 'Low' : 'OK',
             last_updated: new Date().toISOString()
         });
         
         res.status(201).json({
             message: 'Shipment created successfully',
             shipment,
+            invoice: {
+                number: invoiceNumber,
+                issuedAt: timestamp
+            },
             priceBreakdown: {
                 distance: `${distance} km`,
                 containerType: container_type,
                 ratePerKm: `₺${price / distance}`,
                 totalPrice: `₺${price}`,
                 formula: `${distance} km × ₺${price / distance}/km = ₺${price}`,
-                estimatedDelivery: `${estimated_delivery_days} days`
+                estimatedDelivery: `${estimated_delivery_days} days`,
+                issuedAt: timestamp
             }
         });
         
@@ -203,7 +226,10 @@ async function updateShipmentStatus(req, res) {
             return res.status(400).json({ error: 'Invalid status' });
         }
         
-        const shipment = update('shipments', s => s.id == id, { status });
+        const shipment = update('shipments', s => s.id == id, { 
+            status,
+            updated_at: new Date().toISOString()
+        });
         
         if (!shipment) {
             return res.status(404).json({ error: 'Shipment not found' });

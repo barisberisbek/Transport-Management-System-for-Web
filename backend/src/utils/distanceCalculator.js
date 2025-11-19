@@ -1,6 +1,20 @@
-// Distance Calculator - Simulates Google Maps API
-// Base location: Muğla, Turkey
+// Distance Calculator - Google Maps Distance Matrix API Simulation
+// Base location: Muğla, Turkey (Company Headquarters)
 // All distances in kilometers
+//
+// This module simulates Google Maps Distance Matrix API responses
+// In production, replace with actual Google Maps API:
+// const {Client} = require("@googlemaps/google-maps-services-js");
+// const client = new Client({});
+//
+// API Response Format:
+// {
+//   origin: "Muğla, Turkey",
+//   destination: "Berlin, Germany",  
+//   distance: { value: 3000000, text: "3,000 km" },
+//   duration: { value: 216000, text: "60 hours" },
+//   status: "OK"
+// }
 
 const distances = {
     // Domestic (Turkey)
@@ -45,43 +59,87 @@ const distances = {
 };
 
 /**
+ * Simulates Google Maps Distance Matrix API call
+ * @param {string} destination - City, Country format
+ * @returns {Object} - Simulated API response matching Google's format
+ */
+function simulateGoogleMapsAPI(destination) {
+    // Get base distance from our database
+    let distance = distances[destination];
+    
+    // If not found, try case-insensitive match
+    if (!distance) {
+        const lowerDest = destination.toLowerCase();
+        for (const [key, value] of Object.entries(distances)) {
+            if (key.toLowerCase() === lowerDest) {
+                distance = value;
+                break;
+            }
+        }
+    }
+    
+    // If still not found, estimate by country
+    if (!distance) {
+        const country = destination.split(',').pop().trim().toLowerCase();
+        
+        if (country.includes('turkey')) distance = 300;
+        else if (country.includes('germany') || country.includes('france')) distance = 3000;
+        else if (country.includes('uk') || country.includes('england')) distance = 3500;
+        else if (country.includes('spain') || country.includes('portugal')) distance = 3800;
+        else if (country.includes('italy')) distance = 2100;
+        else if (country.includes('greece')) distance = 800;
+        else if (country.includes('egypt')) distance = 1500;
+        else if (country.includes('uae') || country.includes('emirates')) distance = 3400;
+        else if (country.includes('india')) distance = 5500;
+        else if (country.includes('china')) distance = 8500;
+        else if (country.includes('japan')) distance = 9800;
+        else if (country.includes('usa') || country.includes('united states')) distance = 10000;
+        else if (country.includes('canada')) distance = 9200;
+        else distance = 3000; // Default international
+    }
+    
+    // Calculate estimated duration (average 50 km/h for freight)
+    const durationHours = Math.ceil(distance / 50);
+    
+    // Return Google Maps API format response
+    return {
+        origin_addresses: ["Muğla, Turkey"],
+        destination_addresses: [destination],
+        rows: [{
+            elements: [{
+                distance: {
+                    text: `${distance.toLocaleString()} km`,
+                    value: distance * 1000 // Google returns meters
+                },
+                duration: {
+                    text: `${durationHours} hours`,
+                    value: durationHours * 3600 // Google returns seconds
+                },
+                status: "OK"
+            }]
+        }],
+        status: "OK"
+    };
+}
+
+/**
  * Calculate distance from Muğla to destination
+ * Uses Google Maps API simulation
  * @param {string} destination - City, Country format
  * @returns {number} - Distance in kilometers
  */
 function calculateDistance(destination) {
-    // Exact match
-    if (distances[destination]) {
-        return distances[destination];
+    // Simulate Google Maps API call
+    const apiResponse = simulateGoogleMapsAPI(destination);
+    
+    if (apiResponse.status === "OK" && apiResponse.rows[0].elements[0].status === "OK") {
+        // Extract distance from API response (convert meters to km)
+        return apiResponse.rows[0].elements[0].distance.value / 1000;
     }
     
-    // Try case-insensitive match
-    const lowerDest = destination.toLowerCase();
-    for (const [key, value] of Object.entries(distances)) {
-        if (key.toLowerCase() === lowerDest) {
-            return value;
-        }
-    }
-    
-    // Extract country and estimate by region
-    const country = destination.split(',').pop().trim().toLowerCase();
-    
-    if (country.includes('turkey')) return 300; // Average domestic
-    if (country.includes('germany') || country.includes('france') || country.includes('netherlands')) return 3000;
-    if (country.includes('uk') || country.includes('england')) return 3500;
-    if (country.includes('spain') || country.includes('portugal')) return 3800;
-    if (country.includes('italy')) return 2100;
-    if (country.includes('greece')) return 800;
-    if (country.includes('egypt')) return 1500;
-    if (country.includes('uae') || country.includes('emirates')) return 3400;
-    if (country.includes('india')) return 5500;
-    if (country.includes('china')) return 8500;
-    if (country.includes('japan')) return 9800;
-    if (country.includes('usa') || country.includes('united states')) return 10000;
-    if (country.includes('canada')) return 9200;
-    
-    // Default for unknown destinations (average international)
-    return 3000;
+    // Fallback for API errors
+    console.log(`Google Maps API simulation failed for ${destination}, using default`);
+    return 3000; // Default international distance
 }
 
 /**
@@ -109,6 +167,7 @@ function estimateDeliveryTime(distance, containerType) {
 module.exports = {
     calculateDistance,
     estimateDeliveryTime,
+    simulateGoogleMapsAPI, // Export for testing/debugging
     getAllDestinations: () => Object.keys(distances).sort()
 };
 

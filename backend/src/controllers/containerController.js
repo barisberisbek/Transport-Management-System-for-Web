@@ -11,7 +11,7 @@ async function getAllContainers(req, res) {
         const stats = {
             total: containers.length,
             available: containers.filter(c => c.status === 'Available').length,
-            ready: containers.filter(c => c.status === 'Ready').length,
+            ready: containers.filter(c => c.status === 'Ready for Transport').length,
             inTransit: containers.filter(c => c.status === 'In Transit').length,
             averageUtilization: calculateUtilization(containers) + '%'
         };

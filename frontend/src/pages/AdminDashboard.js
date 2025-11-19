@@ -10,6 +10,8 @@ import {
   reportAPI
 } from '../services/api';
 
+const formatDateTime = (value) => value ? new Date(value).toLocaleString('tr-TR') : '—';
+
 function AdminDashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('shipments');
   const [data, setData] = useState({});
@@ -35,8 +37,16 @@ function AdminDashboard({ user, onLogout }) {
           setData({ containers: containersRes.data.containers, stats: containersRes.data.stats });
           break;
         case 'fleet':
-          const fleetRes = await fleetAPI.getAll();
-          setData({ fleet: fleetRes.data.fleet, stats: fleetRes.data.stats });
+          const [fleetRes, tripRes] = await Promise.all([
+            fleetAPI.getAll(),
+            fleetAPI.getTrips()
+          ]);
+          setData({ 
+            fleet: fleetRes.data.fleet, 
+            stats: fleetRes.data.stats,
+            trips: tripRes.data.trips,
+            tripStats: tripRes.data.stats
+          });
           break;
         case 'financials':
           const financialRes = await financialAPI.getSummary();
@@ -169,6 +179,7 @@ function ShipmentsTab({ data, setMessage, reload }) {
               <th>Destination</th>
               <th>Container</th>
               <th>Price</th>
+              <th>Created</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
@@ -183,6 +194,7 @@ function ShipmentsTab({ data, setMessage, reload }) {
                 <td>{shipment.destination}</td>
                 <td>{shipment.container_id ? `#${shipment.container_id}` : 'Not assigned'}</td>
                 <td>₺{shipment.price.toLocaleString('tr-TR')}</td>
+                <td>{formatDateTime(shipment.created_at)}</td>
                 <td><span className={`badge ${getStatusBadge(shipment.status)}`}>{shipment.status}</span></td>
                 <td>
                   <select
@@ -308,18 +320,36 @@ function ContainersTab({ data, setMessage, reload }) {
 }
 
 // Tab 3: Fleet Management
-function FleetTab({ data, setMessage }) {
+function FleetTab({ data, setMessage, reload }) {
   const fleet = data.fleet || [];
   const stats = data.stats || {};
-  const [expenseCalc, setExpenseCalc] = useState({ vehicleId: '', distance: '', result: null });
+  const trips = data.trips || [];
+  const tripStats = data.tripStats || {};
+  const [expenseCalc, setExpenseCalc] = useState({ 
+    vehicleId: '', 
+    distance: '', 
+    shipmentId: '', 
+    notes: '', 
+    result: null,
+    trip: null
+  });
 
   const handleCalculateExpense = async () => {
     try {
-      const response = await fleetAPI.calculateExpense({
+      const payload = {
         vehicleId: expenseCalc.vehicleId,
-        distance: parseFloat(expenseCalc.distance)
+        distance: parseFloat(expenseCalc.distance),
+        shipmentId: expenseCalc.shipmentId ? Number(expenseCalc.shipmentId) : undefined,
+        notes: expenseCalc.notes
+      };
+      const response = await fleetAPI.calculateExpense(payload);
+      setExpenseCalc({ 
+        ...expenseCalc, 
+        result: response.data.expense,
+        trip: response.data.trip
       });
-      setExpenseCalc({ ...expenseCalc, result: response.data.expense });
+      setMessage({ type: 'success', text: `Trip expense logged for ${response.data.expense.vehicleName}` });
+      reload();
     } catch (err) {
       setMessage({ type: 'danger', text: 'Failed to calculate expense' });
     }
@@ -416,12 +446,34 @@ function FleetTab({ data, setMessage }) {
               placeholder="e.g., 3000"
             />
           </div>
+
+          <div className="form-group">
+            <label className="form-label">Shipment ID (optional)</label>
+            <input
+              type="number"
+              className="form-input"
+              value={expenseCalc.shipmentId}
+              onChange={(e) => setExpenseCalc({ ...expenseCalc, shipmentId: e.target.value, trip: null })}
+              placeholder="Link to shipment"
+            />
+          </div>
           
           <div style={{display: 'flex', alignItems: 'flex-end'}}>
             <button onClick={handleCalculateExpense} className="btn btn-primary" disabled={!expenseCalc.vehicleId || !expenseCalc.distance}>
               Calculate
             </button>
           </div>
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Notes</label>
+          <textarea
+            className="form-input"
+            rows="2"
+            value={expenseCalc.notes}
+            onChange={(e) => setExpenseCalc({ ...expenseCalc, notes: e.target.value })}
+            placeholder="Route or cargo details"
+          />
         </div>
 
         {expenseCalc.result && (
@@ -433,6 +485,72 @@ function FleetTab({ data, setMessage }) {
             </p>
           </div>
         )}
+
+        {expenseCalc.trip && (
+          <div className="alert alert-success" style={{marginTop: '1rem'}}>
+            <p>
+              Logged Trip #{expenseCalc.trip.id} for {expenseCalc.trip.vehicle_name} covering {expenseCalc.trip.distance} km — 
+              Expense: ₺{expenseCalc.trip.total_expense.toLocaleString('tr-TR')}
+            </p>
+          </div>
+        )}
+      </section>
+
+      <section className="card" aria-labelledby="trip-logs-heading">
+        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem'}}>
+          <h2 id="trip-logs-heading">Fleet Trip Log</h2>
+          <div className="stat-card" style={{minWidth: '200px'}}>
+            <h3>{tripStats.totalTrips || 0}</h3>
+            <p>Total Trips Logged</p>
+          </div>
+        </div>
+
+        <div className="dashboard-grid">
+          <div className="stat-card">
+            <h3>{tripStats.totalDistance?.toLocaleString('tr-TR') || 0} km</h3>
+            <p>Total Distance</p>
+          </div>
+          <div className="stat-card">
+            <h3>₺{tripStats.totalExpense?.toLocaleString('tr-TR') || 0}</h3>
+            <p>Total Fleet Expense</p>
+          </div>
+        </div>
+
+        <div className="table-container" style={{marginTop: '1.5rem'}}>
+          <table>
+            <thead>
+              <tr>
+                <th>Trip ID</th>
+                <th>Vehicle</th>
+                <th>Distance</th>
+                <th>Expense</th>
+                <th>Shipment</th>
+                <th>Notes</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {trips.map(trip => (
+                <tr key={trip.id}>
+                  <td>#{trip.id}</td>
+                  <td>{trip.vehicle_name} ({trip.vehicle_type})</td>
+                  <td>{trip.distance} km</td>
+                  <td>₺{trip.total_expense.toLocaleString('tr-TR')}</td>
+                  <td>{trip.shipment_id ? `#${trip.shipment_id}` : '—'}</td>
+                  <td>{trip.notes || '—'}</td>
+                  <td>{formatDateTime(trip.created_at)}</td>
+                </tr>
+              ))}
+              {trips.length === 0 && (
+                <tr>
+                  <td colSpan="7" style={{textAlign: 'center', padding: '1rem'}}>
+                    No trips logged yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
     </>
   );
@@ -462,6 +580,9 @@ function FinancialsTab({ data, setMessage, reload }) {
             🔄 Recalculate from Shipments
           </button>
         </div>
+        <p style={{color: 'var(--text-light)', marginTop: '-0.5rem', marginBottom: '1.5rem'}}>
+          Snapshot: {formatDateTime(financial.generatedAt)} | Last Updated: {formatDateTime(financial.lastUpdated)}
+        </p>
         
         <div className="dashboard-grid">
           <div className="stat-card" style={{borderLeftColor: 'var(--secondary-color)'}}>
@@ -641,7 +762,7 @@ function ReportsTab({ data }) {
         </div>
         
         <p style={{color: 'var(--text-light)'}}>
-          Generated: {report.generatedAt ? new Date(report.generatedAt).toLocaleString('tr-TR') : 'N/A'}
+          Generated: {report.issuedAtReadable || formatDateTime(report.generatedAt)}
         </p>
       </section>
 

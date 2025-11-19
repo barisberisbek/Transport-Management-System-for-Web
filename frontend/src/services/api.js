@@ -51,6 +51,7 @@ export const containerAPI = {
 // Fleet API (Admin)
 export const fleetAPI = {
     getAll: () => api.get('/admin/fleet'),
+    getTrips: () => api.get('/admin/fleet/trips/logs'),
     getById: (id) => api.get(`/admin/fleet/${id}`),
     calculateExpense: (data) => api.post('/admin/fleet/calculate-expense', data),
     selectVehicle: (data) => api.post('/admin/fleet/select-vehicle', data),

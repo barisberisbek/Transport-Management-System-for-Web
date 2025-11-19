@@ -18,6 +18,8 @@ function CreateShipment({ user, onLogout }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const formatDateTime = (value) => value ? new Date(value).toLocaleString('tr-TR') : '—';
+
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -94,12 +96,21 @@ function CreateShipment({ user, onLogout }) {
                     <span>Distance:</span>
                     <strong>{result.priceBreakdown.distance}</strong>
                   </div>
+                  <div style={{display: 'flex', justifyContent: 'space-between'}}>
+                    <span>Order Date:</span>
+                    <strong>{formatDateTime(result.shipment.created_at)}</strong>
+                  </div>
+                  <div style={{display: 'flex', justifyContent: 'space-between'}}>
+                    <span>Invoice #:</span>
+                    <strong>{result.invoice?.number || '—'}</strong>
+                  </div>
                 </div>
 
                 <div className="alert alert-info">
                   <h3 style={{marginBottom: '1rem'}}>Price Breakdown</h3>
                   <p><strong>Formula:</strong> {result.priceBreakdown.formula}</p>
                   <p><strong>Rate per km:</strong> {result.priceBreakdown.ratePerKm}</p>
+                  <p><strong>Issued At:</strong> {formatDateTime(result.priceBreakdown.issuedAt || result.invoice?.issuedAt)}</p>
                   <p style={{fontSize: '1.5rem', marginTop: '1rem'}}>
                     <strong>Total Price: {result.priceBreakdown.totalPrice}</strong>
                   </p>

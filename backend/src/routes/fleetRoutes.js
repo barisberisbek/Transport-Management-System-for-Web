@@ -3,7 +3,8 @@ const router = express.Router();
 const {
     getAllFleet,
     calculateExpense,
-    getVehicleById
+    getVehicleById,
+    getTripLogs
 } = require('../controllers/fleetController');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
@@ -11,8 +12,9 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth');
 router.use(authenticateToken, requireAdmin);
 
 router.get('/', getAllFleet);
-router.get('/:id', getVehicleById);
+router.get('/trips/logs', getTripLogs);
 router.post('/calculate-expense', calculateExpense);
+router.get('/:id', getVehicleById);
 
 module.exports = router;
 

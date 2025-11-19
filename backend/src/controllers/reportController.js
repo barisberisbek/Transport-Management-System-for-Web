@@ -1,17 +1,24 @@
 const { getFinancials, findAll } = require('../config/dataStore');
 const { calculateUtilization } = require('../utils/containerOptimizer');
+const { calculateFinancials } = require('../utils/financialCalculator');
+
+const toNumber = (value) => {
+    if (typeof value === 'number') {
+        return Number.isFinite(value) ? value : 0;
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+};
 
 /**
  * Generate comprehensive report - Module 6: Reports
  */
 async function generateReport(req, res) {
     try {
-        // Financial data
-        const financial = getFinancials();
-        
         // Shipment data
         const allShipments = findAll('shipments');
         const deliveredShipments = allShipments.filter(s => s.status === 'Delivered');
+        const totalRevenue = deliveredShipments.reduce((sum, s) => sum + s.price, 0);
         
         // Container data
         const containers = findAll('containers');
@@ -32,16 +39,18 @@ async function generateReport(req, res) {
         const mostPopularRoute = popularRoutes.length > 0 ? popularRoutes[0].route : 'N/A';
         
         // Total distance
-        const totalDistance = allShipments.reduce((sum, s) => sum + s.distance, 0);
+        const totalDistance = allShipments.reduce((sum, s) => sum + toNumber(s.distance), 0);
         
         // Products sold per category
         const categoryStats = {};
+        const totalWeight = allShipments.reduce((sum, s) => sum + toNumber(s.weight), 0);
         allShipments.forEach(s => {
             if (!categoryStats[s.category]) {
                 categoryStats[s.category] = { count: 0, weight: 0 };
             }
+            const shipmentWeight = toNumber(s.weight);
             categoryStats[s.category].count++;
-            categoryStats[s.category].weight += s.weight;
+            categoryStats[s.category].weight += shipmentWeight;
         });
         
         // Inventory
@@ -49,27 +58,39 @@ async function generateReport(req, res) {
         
         // Fleet data
         const fleet = findAll('fleet');
+        const fleetTrips = findAll('fleet_trips');
+        const totalFleetExpense = fleetTrips.reduce((sum, trip) => sum + (trip.total_expense || 0), 0);
+        const totalTripDistance = fleetTrips.reduce((sum, trip) => sum + (trip.distance || 0), 0);
         const fleetStats = {
             totalVehicles: fleet.length,
             ships: fleet.filter(v => v.type === 'Ship').length,
             trucks: fleet.filter(v => v.type === 'Truck').length,
-            totalCapacity: fleet.reduce((sum, v) => sum + v.capacity, 0)
+            totalCapacity: fleet.reduce((sum, v) => sum + v.capacity, 0),
+            loggedTrips: fleetTrips.length,
+            totalTripExpense: totalFleetExpense,
+            totalTripDistance
         };
         
-        // Build comprehensive report
+        // Financial summary derived from real data
+        const calculatedFinancials = calculateFinancials(totalRevenue, totalFleetExpense);
+        const financial = getFinancials();
+        
+        const generatedAt = new Date().toISOString();
         const report = {
-            generatedAt: new Date().toISOString(),
+            generatedAt,
+            issuedAt: generatedAt,
+            issuedAtReadable: new Date(generatedAt).toLocaleString('tr-TR'),
             period: 'All Time',
             
             // Financial Summary
             financial: {
-                totalRevenue: financial.total_revenue,
-                totalFleetExpense: financial.total_expenses,
-                otherExpenses: 0,
-                netIncome: financial.net_income,
-                tax: financial.tax,
-                taxRate: '20%',
-                profitAfterTax: financial.profit_after_tax
+                totalRevenue: calculatedFinancials.totalRevenue,
+                totalFleetExpense: totalFleetExpense,
+                otherExpenses: Math.max((financial.total_expenses || 0) - totalFleetExpense, 0),
+                netIncome: calculatedFinancials.netIncome,
+                tax: calculatedFinancials.tax,
+                taxRate: calculatedFinancials.taxRate,
+                profitAfterTax: calculatedFinancials.profitAfterTax
             },
             
             // Shipment Statistics
@@ -99,15 +120,15 @@ async function generateReport(req, res) {
             // Product Statistics
             products: {
                 soldPerCategory: categoryStats,
-                totalWeight: allShipments.reduce((sum, s) => sum + s.weight, 0) + ' kg'
+                totalWeight: totalWeight + ' kg'
             },
             
             // Remaining Inventory
             inventory: inventory.map(item => ({
                 category: item.category,
-                quantity: item.quantity + ' kg',
+                quantity: toNumber(item.quantity) + ' kg',
                 status: item.status,
-                percentOfMinimum: ((item.quantity / item.min_stock) * 100).toFixed(2) + '%'
+                percentOfMinimum: ((toNumber(item.quantity) / item.min_stock) * 100).toFixed(2) + '%'
             })),
             
             // Fleet Statistics
